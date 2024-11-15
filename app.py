@@ -17,16 +17,14 @@ from langchain.schema import Document
 from gtts import gTTS
 import tempfile
 
-# Load environment variables
 load_dotenv()
 
-# Function to retrieve session history
+
 def get_session_history(session: str) -> BaseChatMessageHistory:
     if session not in st.session_state.store:
         st.session_state.store[session] = ChatMessageHistory()
     return st.session_state.store[session]
 
-# Function to process uploaded PDF files
 def process_uploaded_files(uploaded_files):
     documents = []
     for uploaded_file in uploaded_files:
@@ -37,18 +35,17 @@ def process_uploaded_files(uploaded_files):
         documents.append(Document(page_content=text))
     return documents
 
-# Groq API Key and embeddings setup
+# Groq setup
 groq_api_key = os.getenv('GROQ_KEY')
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
-# Streamlit app configuration
+# Streamlit app config
 st.set_page_config(page_title="PDF RAG Chatbot (TTS)", page_icon="🤖")
 st.title("PDF Conversational Agent with Text-to-speech")
 st.markdown("**Welcome to the app!**  \nUpload your PDF in the sidebar to get started.")
 st.sidebar.title("Upload PDFs")
 
-# Session management
 if 'session_id' not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 session_id = st.session_state.session_id
@@ -64,7 +61,7 @@ if uploaded_files:
     vectorstore = FAISS.from_documents(documents=splits, embedding=embeddings)
     retriever = vectorstore.as_retriever()
 
-    # System prompt for history-aware retriever
+    # System prompt
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question"
         "which might reference context in the chat history, "
@@ -80,10 +77,8 @@ if uploaded_files:
         ]
     )
 
-    # History aware retriever
     history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
-    # Prompt setup for Q&A chain
     system_prompt = (
         "You are an assistant for question-answering text from PDF. "
         "Use the following pieces of retrieved context to answer "
@@ -101,7 +96,6 @@ if uploaded_files:
         ]
     )
 
-    # Create the Q&A chain
     question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
@@ -112,22 +106,18 @@ if uploaded_files:
         output_messages_key="answer"
     )
 
-    # Initialize the chat history if it doesn't exist
     if "messages" not in st.session_state:
         st.session_state["messages"] = [{"role": "assistant", "content": "Hello! How can I assist you with your PDFs?"}]
 
-    # Display previous chat messages
     for msg in st.session_state.messages:
         st.chat_message(msg["role"]).write(msg["content"])
 
-    # User input
     user_input = st.chat_input(placeholder="Ask me anything about the uploaded PDFs...")
 
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
         st.chat_message("user").write(user_input)
 
-        # Get AI's response
         response = conversational_rag_chain.invoke(
             {"input": user_input},
             config={"configurable": {"session_id": session_id}},
@@ -137,13 +127,10 @@ if uploaded_files:
         st.session_state.messages.append({"role": "assistant", "content": assistant_response})
         st.chat_message("assistant").write(assistant_response)
 
-        # Convert the AI's response to speech using gTTS
         if st.session_state.messages[-1]["role"] == "assistant":
             tts = gTTS(assistant_response, lang='en')
-            # Save the speech to a temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmpfile:
                 tts.save(tmpfile.name)
                 audio_file_path = tmpfile.name
-
-                # Play the audio automatically using Streamlit
+                
                 st.audio(audio_file_path, format="audio/mp3", autoplay=True)
