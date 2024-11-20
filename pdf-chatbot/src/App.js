@@ -15,19 +15,30 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const queryInputRef = useRef(null);
-  
 
   // Keybinding setup
   useEffect(() => {
     const handleKeyPress = (e) => {
-      if (e.key === "ArrowDown") {
-        document.getElementById("choose-btn").click();
+      let audio;
+
+      if (e.key === "Escape") {
+        audio = new Audio(require("./audio/start.mp3"));
       } else if (e.key === "ArrowUp") {
         document.getElementById("upload-file-btn").click();
+        audio = new Audio(require("./audio/upload.mp3"));
       } else if (e.key === "ArrowRight") {
         queryInputRef.current?.focus();
+        audio = new Audio(require("./audio/focus.mp3"));
       } else if (e.key === "Enter" && !e.shiftKey) {
         handleQuerySubmit();
+        audio = new Audio(require("./audio/processing.mp3"));
+      } else if (e.key === "ArrowDown") {
+        document.getElementById("choose-btn").click();
+        audio = new Audio(require("./audio/choose.mp3"));
+      } 
+
+      if (audio) {
+        audio.play().catch((err) => console.error("Error playing audio:", err));
       }
     };
 
