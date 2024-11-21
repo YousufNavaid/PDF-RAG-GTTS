@@ -8,8 +8,6 @@ import uploadAudio from "./audio/upload.mp3";
 import focusAudio from "./audio/focus.mp3";
 import processingAudio from "./audio/processing.mp3";
 import chooseAudio from "./audio/choose.mp3";
-import responseAudio from "./audio/response.mp3";
-
 
 axios.defaults.baseURL = "http://localhost:8000";
 
@@ -102,7 +100,8 @@ const App = () => {
         { type: "ai", text: answer },
       ]);
 
-      new Audio(responseAudio).play();
+      const audioResp = require("./audio/response.mp3");
+      new Audio(audioResp).play();
 
       setIsLoading(false);
     } catch (error) {
