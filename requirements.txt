@@ -8,4 +8,3 @@ langchain_huggingface
 PyPDF2
 uuid
 faiss-cpu
-gTTS
