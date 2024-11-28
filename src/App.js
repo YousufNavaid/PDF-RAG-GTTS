@@ -91,7 +91,7 @@ const App = () => {
         session_id: sessionId,
       });
   
-      const { response: answer } = response.data;
+      const { response: answer, audio } = response.data;
       
       message.success("Query processed successfully");
       
@@ -100,7 +100,7 @@ const App = () => {
         { type: "ai", text: answer },
       ]);
 
-      const audioResp = require("./audio/response.mp3");
+      const audioResp = require(`./audio/${audio}`);
       new Audio(audioResp).play();
 
       setIsLoading(false);

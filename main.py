@@ -143,8 +143,9 @@ async def query(request: QueryRequest):
     # Generate TTS audio
     tts = gTTS(assistant_response, lang="en")
 
-    tts.save("./src/audio/response.mp3")
+    fileName = f"response{uuid.uuid4()}.mp3"
+    tts.save(f"./src/audio/{fileName}")
 
-    time.sleep(1) # delay to write audio completely
+    time.sleep(5) # delay to write audio completely
 
-    return JSONResponse(content={"response": assistant_response})
+    return JSONResponse(content={"response": assistant_response, "audio": fileName})
