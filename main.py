@@ -14,8 +14,6 @@ from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-from gtts import gTTS
-import time
 from PyPDF2 import PdfReader
 from dotenv import load_dotenv
 
@@ -140,12 +138,4 @@ async def query(request: QueryRequest):
 
     sessions[request.session_id]["messages"].append({"role": "assistant", "content": assistant_response})
 
-    # Generate TTS audio
-    tts = gTTS(assistant_response, lang="en")
-
-    fileName = f"response{uuid.uuid4()}.mp3"
-    tts.save(f"./src/audio/{fileName}")
-
-    time.sleep(5) # delay to write audio completely
-
-    return JSONResponse(content={"response": assistant_response, "audio": fileName})
+    return JSONResponse(content={"response": assistant_response})

@@ -3,6 +3,7 @@ import axios from "axios";
 import FileUpload from "./components/FileUpload";
 import Messages from "./components/Messages";
 import QueryInput from "./components/QueryInput";
+import VoiceRecorder from "./components/VoiceRecorder";
 
 axios.defaults.baseURL = "http://localhost:8000";
 
@@ -18,11 +19,14 @@ const App = () => {
   const [pdfFile, setPdfFile] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [waitingForResponse, setWaitingForResponse] = useState(false); // Track if we are waiting for a response
+  const [waitingForResponse, setWaitingForResponse] = useState(false);
+  const [hasSpokenWelcome, setHasSpokenWelcome] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
 
   const queryInputRef = useRef(null);
-  const uploadPdfButtonRef = useRef(null); // Reference for the "Upload PDF" button
-  const choosePdfButtonRef = useRef(null); // Reference for the "Choose PDF" button
+  const uploadPdfButtonRef = useRef(null);
+  const choosePdfButtonRef = useRef(null);
+  const recorderButtonRef = useRef(null);
 
   // File upload handler
   const handleUploadPdf = async () => {
@@ -37,7 +41,6 @@ const App = () => {
     try {
       const response = await axios.post("/upload_pdf/", formData);
       setSessionId(response.data.session_id);
-
       speak("PDF uploaded successfully.");
     } catch (error) {
       speak("There was an error uploading the PDF.");
@@ -53,15 +56,13 @@ const App = () => {
 
     try {
       setIsLoading(true);
-      setWaitingForResponse(true); // Start waiting for the response
+      setWaitingForResponse(true);
       setMessages((prevMessages) => [
         ...prevMessages,
         { type: "user", text: query },
       ]);
 
       speak("Processing your query...");
-      setQuery("");
-
       const response = await axios.post("/query/", {
         query: query,
         session_id: sessionId,
@@ -69,75 +70,79 @@ const App = () => {
 
       const { response: answer } = response.data;
 
-      // Add AI response message
       setMessages((prevMessages) => [
         ...prevMessages,
         { type: "ai", text: answer },
       ]);
 
-      // Read the response aloud
       speak(answer);
-
-      setIsLoading(false);
-      setWaitingForResponse(false); // End waiting for response
+      setQuery("");
     } catch (error) {
       speak("Something went wrong.");
+    } finally {
       setIsLoading(false);
-      setWaitingForResponse(false); // End waiting for response on error
+      setWaitingForResponse(false);
     }
   };
 
+  // Handle transcript from voice recorder
+  const handleTranscript = (transcript) => {
+    setQuery(transcript); // Update the query with the transcript from the voice recorder
+  };
+
+  // Speak welcome message on first interaction
   useEffect(() => {
-    // Key press event handler
+      speak("Hi! Welcome to Visual Impaired GPT. Please upload a PDF and enter a query. Press Tab for Instructions");
+      setHasSpokenWelcome(true);
+  }, []);
+
+  // Keypress handling
+  useEffect(() => {
     const handleKeyPress = (e) => {
       let voiceMessage;
 
-      // Reset action (Escape key)
       if (e.key === "Escape") {
         voiceMessage = "Resetting to the start.";
-        setMessages([]); // Clear messages
+        setMessages([]);
         setQuery("");
         setSessionId(null);
         speak(voiceMessage);
-      }
-
-      // File upload action (ArrowUp key)
-      else if (e.key === "ArrowUp") {
-        voiceMessage = "Opening file upload.";
-        choosePdfButtonRef.current?.click(); // Trigger file input button click
+      } else if (e.key === "Tab") {
+        voiceMessage = "Instructions. Down arrow to select PDF. Up arrow to upload the selected PDF. Right arrow to type your query. Left arrow to start and stop recording. Escape to start again. Tab for repeating these instructions.";
+        uploadPdfButtonRef.current?.click();
         speak(voiceMessage);
-      }
-
-      // Focus on the query input (ArrowRight key)
-      else if (e.key === "ArrowRight") {
+      } else if (e.key === "ArrowUp") {
+        voiceMessage = "Uploading PDF";
+        uploadPdfButtonRef.current?.click();
+        speak(voiceMessage);
+      } else if (e.key === "ArrowDown") {
+        voiceMessage = "Select your PDF by typing its name and then hit Enter.";
+        choosePdfButtonRef.current?.click();
+        speak(voiceMessage);
+      } else if (e.key === "ArrowRight") {
         queryInputRef.current?.focus();
-        voiceMessage = "Focusing on the query input.";
+        voiceMessage = "Please type your query and hit enter";
         speak(voiceMessage);
-      }
-
-      // Submit query (Enter key)
-      else if (e.key === "Enter" && !e.shiftKey) {
+      } else if (e.key === "ArrowLeft") {
+        recorderButtonRef.current?.click();
+        setIsRecording((prev) => {
+          const newState = !prev;
+          voiceMessage = newState ? "Recording" : "Recording completed";
+          speak(voiceMessage);
+          return newState;
+        });
+      } else if (e.key === "Enter" && !e.shiftKey) {
         const isButtonEnabled =
           query && sessionId && !isLoading && !waitingForResponse;
         if (isButtonEnabled) {
           voiceMessage = "Submitting your query.";
           speak(voiceMessage);
-          handleQuerySubmit(); // Submit the query
+          handleQuerySubmit();
         }
-      }
-
-      // Upload file action (ArrowDown key)
-      else if (e.key === "ArrowDown") {
-        voiceMessage = "Choosing file.";
-        uploadPdfButtonRef.current?.click(); // Trigger upload button click
-        speak(voiceMessage);
       }
     };
 
-    // Attach keydown event listener
     window.addEventListener("keydown", handleKeyPress);
-
-    // Cleanup event listener on unmount
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
@@ -160,13 +165,18 @@ const App = () => {
           uploadPdfButtonRef={uploadPdfButtonRef}
           choosePdfButtonRef={choosePdfButtonRef}
         />
-        <QueryInput
-          query={query}
-          setQuery={setQuery}
-          queryInputRef={queryInputRef}
-          handleQuerySubmit={handleQuerySubmit}
-          disabled={waitingForResponse}
-        />
+        <div className="w-full flex items-center space-x-4 mt-4">
+          <QueryInput
+            query={query}
+            setQuery={setQuery}
+            queryInputRef={queryInputRef}
+            handleQuerySubmit={handleQuerySubmit}
+            disabled={waitingForResponse}
+          />
+          <VoiceRecorder 
+            onVoiceInput={handleTranscript}
+            recorderButtonRef={recorderButtonRef} />
+        </div>
         {waitingForResponse && (
           <p className="text-center text-gray-500 mt-4">
             Waiting for response... Please wait before entering a new query.
